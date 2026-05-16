@@ -16,7 +16,8 @@ jobs:
     name: Build and Deploy Ticket API
     env:
       API_APPSETTINGS_PRODUCTION_JSON_SECRET: ${{ secrets.API_APPSETTINGS_PRODUCTION_JSON }}
-      AZURE_WEBAPP_PUBLISH_PROFILE_SECRET: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+      AZURE_CREDENTIALS_SECRET: ${{ secrets.AZURE_CREDENTIALS }}
+      AZURE_WEBAPP_NAME_SECRET: ${{ secrets.AZURE_WEBAPP_NAME }}
 
     steps:
       - name: Checkout
@@ -42,40 +43,26 @@ jobs:
 
       - name: Validate deployment secrets
         run: |
-          if [ -z "$AZURE_WEBAPP_PUBLISH_PROFILE_SECRET" ]; then
-            echo "Missing required GitHub secret: AZURE_WEBAPP_PUBLISH_PROFILE"
+          if [ -z "$AZURE_CREDENTIALS_SECRET" ]; then
+            echo "Missing required GitHub secret: AZURE_CREDENTIALS"
             exit 1
           fi
-
-      - name: Resolve app identity from publish profile
-        id: resolve_app
-        run: |
-          PROFILE_SITE_NAME=$(printf '%s' "$AZURE_WEBAPP_PUBLISH_PROFILE_SECRET" | sed -n 's/.*msdeploySite="\([^"]*\)".*/\1/p' | head -n 1)
-          DESTINATION_URL=$(printf '%s' "$AZURE_WEBAPP_PUBLISH_PROFILE_SECRET" | sed -n 's/.*destinationAppUrl="\([^"]*\)".*/\1/p' | head -n 1)
-          PROFILE_HOST_APP_NAME=$(printf '%s' "$DESTINATION_URL" | sed -n 's#https\?://\([^/]*\).*#\1#p' | cut -d'.' -f1)
-
-          if [ -z "$PROFILE_SITE_NAME" ] && [ -z "$PROFILE_HOST_APP_NAME" ]; then
-            echo "Could not parse app identity from AZURE_WEBAPP_PUBLISH_PROFILE"
+          if [ -z "$AZURE_WEBAPP_NAME_SECRET" ]; then
+            echo "Missing required GitHub secret: AZURE_WEBAPP_NAME"
             exit 1
           fi
-
-          APP_NAME="$PROFILE_SITE_NAME"
-          if [ -z "$APP_NAME" ]; then
-            APP_NAME="$PROFILE_HOST_APP_NAME"
-          fi
-
-          echo "Publish profile site name: ${PROFILE_SITE_NAME:-<missing>}"
-          echo "Publish profile URL app: ${PROFILE_HOST_APP_NAME:-<missing>}"
-          echo "Resolved deploy app-name: $APP_NAME"
-          echo "app_name=$APP_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Write appsettings.Production.json
         run: |
           printf '%s' "$API_APPSETTINGS_PRODUCTION_JSON_SECRET" > "${{ github.workspace }}/publish/appsettings.Production.json"
 
-      - name: Deploy to Azure Web App (publish profile)
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
-          app-name: ${{ steps.resolve_app.outputs.app_name }}
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
           package: "${{ github.workspace }}/publish"
