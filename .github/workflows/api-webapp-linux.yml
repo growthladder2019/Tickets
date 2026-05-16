@@ -50,10 +50,61 @@ jobs:
 
       - name: Resolve Azure Web App name
         run: |
-          APP_NAME="${{ secrets.AZURE_WEBAPP_NAME }}"
+          PROFILE_CONTENT="${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}"
+          if [ -z "$PROFILE_CONTENT" ]; then
+            PROFILE_CONTENT="${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE }}"
+          fi
+
+          APP_NAME=""
+          if [ -n "$PROFILE_CONTENT" ]; then
+            APP_NAME=$(PROFILE_CONTENT="$PROFILE_CONTENT" python - <<'PY'
+import os
+import re
+import xml.etree.ElementTree as ET
+
+xml_text = os.environ.get("PROFILE_CONTENT", "")
+if not xml_text:
+    print("")
+    raise SystemExit(0)
+
+root = ET.fromstring(xml_text)
+profiles = root.findall("publishProfile")
+
+destination_url = ""
+for profile in profiles:
+    if profile.attrib.get("publishMethod", "").lower() == "zipdeploy":
+        destination_url = profile.attrib.get("destinationAppUrl", "")
+        break
+
+if not destination_url and profiles:
+    destination_url = profiles[0].attrib.get("destinationAppUrl", "")
+
+app_name = ""
+if destination_url:
+    match = re.search(r"https?://([^.]+)\\.azurewebsites\\.net", destination_url, re.IGNORECASE)
+    if match:
+        app_name = match.group(1)
+
+if not app_name:
+    for profile in profiles:
+        msdeploy_site = profile.attrib.get("msdeploySite", "")
+        if msdeploy_site:
+            app_name = msdeploy_site
+            break
+
+print(app_name)
+PY
+)
+          fi
+
+          if [ -z "$APP_NAME" ]; then
+            APP_NAME="${{ secrets.AZURE_WEBAPP_NAME }}"
+          fi
+
           if [ -z "$APP_NAME" ]; then
             APP_NAME="mindticketmanagement-fna0gsfmfjecfrbe"
           fi
+
           echo "AZURE_WEBAPP_NAME_VALUE=$APP_NAME" >> "$GITHUB_ENV"
 
       - name: Write appsettings.Production.json
@@ -69,11 +120,19 @@ jobs:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Deploy to Azure Web App (publish profile)
-        if: ${{ env.AZURE_WEBAPP_PUBLISH_PROFILE_SECRET != '' || env.AZURE_WEBAPP_PUBLISH_PROFILE_ALT_SECRET != '' }}
+        if: ${{ env.AZURE_WEBAPP_PUBLISH_PROFILE_SECRET != '' }}
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME_VALUE }}
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE != '' && secrets.AZURE_WEBAPP_PUBLISH_PROFILE || secrets.AZUREAPPSERVICE_PUBLISHPROFILE }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: "${{ github.workspace }}/publish"
+
+      - name: Deploy to Azure Web App (alternate publish profile secret)
+        if: ${{ env.AZURE_WEBAPP_PUBLISH_PROFILE_SECRET == '' && env.AZURE_WEBAPP_PUBLISH_PROFILE_ALT_SECRET != '' }}
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME_VALUE }}
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE }}
           package: "${{ github.workspace }}/publish"
 
       - name: Deploy to Azure Web App (azure login)
