@@ -49,6 +49,7 @@ jobs:
           fi
 
       - name: Resolve Azure Web App name
+        id: resolve_app_name
         run: |
           PROFILE_CONTENT="${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}"
           if [ -z "$PROFILE_CONTENT" ]; then
@@ -57,44 +58,10 @@ jobs:
 
           APP_NAME=""
           if [ -n "$PROFILE_CONTENT" ]; then
-            APP_NAME=$(PROFILE_CONTENT="$PROFILE_CONTENT" python - <<'PY'
-import os
-import re
-import xml.etree.ElementTree as ET
-
-xml_text = os.environ.get("PROFILE_CONTENT", "")
-if not xml_text:
-    print("")
-    raise SystemExit(0)
-
-root = ET.fromstring(xml_text)
-profiles = root.findall("publishProfile")
-
-destination_url = ""
-for profile in profiles:
-    if profile.attrib.get("publishMethod", "").lower() == "zipdeploy":
-        destination_url = profile.attrib.get("destinationAppUrl", "")
-        break
-
-if not destination_url and profiles:
-    destination_url = profiles[0].attrib.get("destinationAppUrl", "")
-
-app_name = ""
-if destination_url:
-    match = re.search(r"https?://([^.]+)\\.azurewebsites\\.net", destination_url, re.IGNORECASE)
-    if match:
-        app_name = match.group(1)
-
-if not app_name:
-    for profile in profiles:
-        msdeploy_site = profile.attrib.get("msdeploySite", "")
-        if msdeploy_site:
-            app_name = msdeploy_site
-            break
-
-print(app_name)
-PY
-)
+            APP_NAME=$(printf '%s' "$PROFILE_CONTENT" | sed -n 's/.*destinationAppUrl="https:\/\/\([^.\"]*\)\.azurewebsites\.net".*/\1/p' | head -n 1)
+            if [ -z "$APP_NAME" ]; then
+              APP_NAME=$(printf '%s' "$PROFILE_CONTENT" | sed -n 's/.*msdeploySite="\([^"]*\)".*/\1/p' | head -n 1)
+            fi
           fi
 
           if [ -z "$APP_NAME" ]; then
@@ -102,10 +69,10 @@ PY
           fi
 
           if [ -z "$APP_NAME" ]; then
-            APP_NAME="mindticketmanagement-fna0gsfmfjecfrbe"
+            APP_NAME="MindTicketManagement"
           fi
 
-          echo "AZURE_WEBAPP_NAME_VALUE=$APP_NAME" >> "$GITHUB_ENV"
+          echo "app_name=$APP_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Write appsettings.Production.json
         run: |
@@ -123,7 +90,7 @@ PY
         if: ${{ env.AZURE_WEBAPP_PUBLISH_PROFILE_SECRET != '' }}
         uses: azure/webapps-deploy@v3
         with:
-          app-name: ${{ env.AZURE_WEBAPP_NAME_VALUE }}
+          app-name: ${{ steps.resolve_app_name.outputs.app_name }}
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
           package: "${{ github.workspace }}/publish"
 
@@ -131,7 +98,7 @@ PY
         if: ${{ env.AZURE_WEBAPP_PUBLISH_PROFILE_SECRET == '' && env.AZURE_WEBAPP_PUBLISH_PROFILE_ALT_SECRET != '' }}
         uses: azure/webapps-deploy@v3
         with:
-          app-name: ${{ env.AZURE_WEBAPP_NAME_VALUE }}
+          app-name: ${{ steps.resolve_app_name.outputs.app_name }}
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE }}
           package: "${{ github.workspace }}/publish"
 
@@ -139,5 +106,5 @@ PY
         if: ${{ env.AZURE_WEBAPP_PUBLISH_PROFILE_SECRET == '' && env.AZURE_WEBAPP_PUBLISH_PROFILE_ALT_SECRET == '' && env.AZURE_CREDENTIALS_SECRET != '' }}
         uses: azure/webapps-deploy@v3
         with:
-          app-name: ${{ env.AZURE_WEBAPP_NAME_VALUE }}
+          app-name: ${{ steps.resolve_app_name.outputs.app_name }}
           package: "${{ github.workspace }}/publish"
