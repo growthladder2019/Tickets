@@ -327,7 +327,7 @@ function AuthPanel({
         {!isSuperAdminMode ? <p>Site ID: {siteId ?? 'Missing in URL'}</p> : null}
         <label>
           Email
-          <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
+          <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="username" required />
         </label>
         {!isSuperAdminMode && mode === 'register' ? (
           <label>
@@ -893,7 +893,7 @@ function UsersPage({ token }: { token: string }) {
       <header className="panel-header"><h2>User Management</h2></header>
       <form className="ticket-form" onSubmit={create}>
         <label>Name<input value={displayName} onChange={(event) => setDisplayName(event.target.value)} required /></label>
-        <label>Email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required /></label>
+        <label>Email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="username" required /></label>
         <label>Password<input type="text" value={password} onChange={(event) => setPassword(event.target.value)} required /></label>
         <label>Linked app codes (comma separated)<input value={appCodes} onChange={(event) => setAppCodes(event.target.value)} /></label>
         <label><input type="checkbox" checked={isSuperAdmin} onChange={(event) => setIsSuperAdmin(event.target.checked)} /> Super Admin</label>

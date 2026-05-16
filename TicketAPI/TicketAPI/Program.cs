@@ -42,11 +42,23 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("Frontend", policy =>
     {
-        policy.WithOrigins(
-                "http://localhost:5173",
-                "https://localhost:5173",
-                "http://127.0.0.1:5173",
-                "https://127.0.0.1:5173")
+        policy.SetIsOriginAllowed(origin =>
+            {
+                if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri))
+                {
+                    return false;
+                }
+
+                var isLocalDevOrigin = origin.Equals("http://localhost:5173", StringComparison.OrdinalIgnoreCase)
+                    || origin.Equals("https://localhost:5173", StringComparison.OrdinalIgnoreCase)
+                    || origin.Equals("http://127.0.0.1:5173", StringComparison.OrdinalIgnoreCase)
+                    || origin.Equals("https://127.0.0.1:5173", StringComparison.OrdinalIgnoreCase);
+
+                var isStaticWebAppOrigin = uri.Scheme.Equals("https", StringComparison.OrdinalIgnoreCase)
+                    && uri.Host.EndsWith(".azurestaticapps.net", StringComparison.OrdinalIgnoreCase);
+
+                return isLocalDevOrigin || isStaticWebAppOrigin;
+            })
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
