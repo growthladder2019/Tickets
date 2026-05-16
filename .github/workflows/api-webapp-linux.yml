@@ -30,6 +30,19 @@ jobs:
       - name: Publish
         run: dotnet publish TicketAPI/TicketAPI/TicketAPI.csproj -c Release -r linux-x64 --self-contained false -o "${{ github.workspace }}/publish"
 
+      - name: Validate production appsettings secret
+        run: |
+          if [ -z "${{ secrets.API_APPSETTINGS_PRODUCTION_JSON }}" ]; then
+            echo "Missing required GitHub secret: API_APPSETTINGS_PRODUCTION_JSON"
+            exit 1
+          fi
+
+      - name: Write appsettings.Production.json
+        run: |
+          cat > "${{ github.workspace }}/publish/appsettings.Production.json" <<'EOF'
+          ${{ secrets.API_APPSETTINGS_PRODUCTION_JSON }}
+          EOF
+
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
