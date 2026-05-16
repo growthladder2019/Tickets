@@ -15,7 +15,6 @@ jobs:
     runs-on: ubuntu-latest
     name: Build and Deploy Ticket API
     env:
-      API_APP_NAME: mindticketmanagement-fna0gsfmfjecfrbe
       API_APPSETTINGS_PRODUCTION_JSON_SECRET: ${{ secrets.API_APPSETTINGS_PRODUCTION_JSON }}
       AZURE_WEBAPP_PUBLISH_PROFILE_SECRET: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
 
@@ -48,21 +47,27 @@ jobs:
             exit 1
           fi
 
-      - name: Validate publish profile matches app
+      - name: Resolve app identity from publish profile
+        id: resolve_app
         run: |
+          PROFILE_SITE_NAME=$(printf '%s' "$AZURE_WEBAPP_PUBLISH_PROFILE_SECRET" | sed -n 's/.*msdeploySite="\([^"]*\)".*/\1/p' | head -n 1)
           DESTINATION_URL=$(printf '%s' "$AZURE_WEBAPP_PUBLISH_PROFILE_SECRET" | sed -n 's/.*destinationAppUrl="\([^"]*\)".*/\1/p' | head -n 1)
-          PROFILE_APP_NAME=$(printf '%s' "$DESTINATION_URL" | sed -n 's#https\?://\([^/]*\).*#\1#p' | cut -d'.' -f1)
-          if [ -z "$PROFILE_APP_NAME" ]; then
-            echo "Could not parse app name from AZURE_WEBAPP_PUBLISH_PROFILE"
+          PROFILE_HOST_APP_NAME=$(printf '%s' "$DESTINATION_URL" | sed -n 's#https\?://\([^/]*\).*#\1#p' | cut -d'.' -f1)
+
+          if [ -z "$PROFILE_SITE_NAME" ] && [ -z "$PROFILE_HOST_APP_NAME" ]; then
+            echo "Could not parse app identity from AZURE_WEBAPP_PUBLISH_PROFILE"
             exit 1
           fi
 
-          echo "Publish profile app: $PROFILE_APP_NAME"
-          if [ "$PROFILE_APP_NAME" != "$API_APP_NAME" ]; then
-            echo "Publish profile belongs to '$PROFILE_APP_NAME' but workflow targets '$API_APP_NAME'."
-            echo "Update AZURE_WEBAPP_PUBLISH_PROFILE with a profile from the target app."
-            exit 1
+          APP_NAME="$PROFILE_SITE_NAME"
+          if [ -z "$APP_NAME" ]; then
+            APP_NAME="$PROFILE_HOST_APP_NAME"
           fi
+
+          echo "Publish profile site name: ${PROFILE_SITE_NAME:-<missing>}"
+          echo "Publish profile URL app: ${PROFILE_HOST_APP_NAME:-<missing>}"
+          echo "Resolved deploy app-name: $APP_NAME"
+          echo "app_name=$APP_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Write appsettings.Production.json
         run: |
@@ -71,6 +76,6 @@ jobs:
       - name: Deploy to Azure Web App (publish profile)
         uses: azure/webapps-deploy@v3
         with:
-          app-name: ${{ env.API_APP_NAME }}
+          app-name: ${{ steps.resolve_app.outputs.app_name }}
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
           package: "${{ github.workspace }}/publish"
