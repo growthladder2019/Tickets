@@ -6,7 +6,7 @@ public sealed class JwtOptions
 
     public string Issuer { get; set; } = "TicketSystem";
     public string Audience { get; set; } = "TicketSystem.Client";
-    public string SigningKey { get; set; } = "please-change-this-signing-key-in-production";
+    public string SigningKey { get; set; } = "replace-with-a-strong-long-key-for-production";
     public int AccessTokenMinutes { get; set; } = 30;
     public int RefreshTokenDays { get; set; } = 7;
 }
