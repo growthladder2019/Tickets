@@ -61,9 +61,6 @@ jobs:
           APP_NAME=""
           if [ -n "$PROFILE_CONTENT" ]; then
             APP_NAME=$(printf '%s' "$PROFILE_CONTENT" | sed -n 's/.*destinationAppUrl="https:\/\/\([^.\"]*\)\.azurewebsites\.net".*/\1/p' | head -n 1)
-            if [ -z "$APP_NAME" ]; then
-              APP_NAME=$(printf '%s' "$PROFILE_CONTENT" | sed -n 's/.*msdeploySite="\([^"]*\)".*/\1/p' | head -n 1)
-            fi
           fi
 
           if [ -z "$APP_NAME" ]; then
@@ -71,9 +68,10 @@ jobs:
           fi
 
           if [ -z "$APP_NAME" ]; then
-            APP_NAME="MindTicketManagement"
+            APP_NAME="mindticketmanagement-fna0gsfmfjecfrbe"
           fi
 
+          echo "Resolved app name: $APP_NAME"
           echo "app_name=$APP_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Write appsettings.Production.json
