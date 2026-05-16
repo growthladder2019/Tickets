@@ -7,7 +7,7 @@ on:
     paths:
       - "TicketAPI/**"
       - "SQL/**"
-      - ".github/workflows/api-webapp-linux.yml"
+      - ".github/workflows/api-webapp-ticket.yml"
   workflow_dispatch:
 
 jobs:
