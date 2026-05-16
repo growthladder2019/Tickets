@@ -50,7 +50,8 @@ jobs:
 
       - name: Validate publish profile matches app
         run: |
-          PROFILE_APP_NAME=$(printf '%s' "$AZURE_WEBAPP_PUBLISH_PROFILE_SECRET" | sed -n 's/.*destinationAppUrl="https:\/\/\([^.\"]*\)\.azurewebsites\.net".*/\1/p' | head -n 1)
+          DESTINATION_URL=$(printf '%s' "$AZURE_WEBAPP_PUBLISH_PROFILE_SECRET" | sed -n 's/.*destinationAppUrl="\([^"]*\)".*/\1/p' | head -n 1)
+          PROFILE_APP_NAME=$(printf '%s' "$DESTINATION_URL" | sed -n 's#https\?://\([^/]*\).*#\1#p' | cut -d'.' -f1)
           if [ -z "$PROFILE_APP_NAME" ]; then
             echo "Could not parse app name from AZURE_WEBAPP_PUBLISH_PROFILE"
             exit 1
