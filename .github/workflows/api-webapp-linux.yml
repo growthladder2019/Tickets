@@ -37,15 +37,41 @@ jobs:
             exit 1
           fi
 
+      - name: Validate deployment secrets
+        run: |
+          if [ -z "${{ secrets.AZURE_WEBAPP_NAME }}" ]; then
+            echo "Missing required GitHub secret: AZURE_WEBAPP_NAME"
+            exit 1
+          fi
+
+          if [ -z "${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}" ] && [ -z "${{ secrets.AZURE_CREDENTIALS }}" ]; then
+            echo "Missing deployment credentials. Add either AZURE_WEBAPP_PUBLISH_PROFILE or AZURE_CREDENTIALS."
+            exit 1
+          fi
+
       - name: Write appsettings.Production.json
         run: |
           cat > "${{ github.workspace }}/publish/appsettings.Production.json" <<'EOF'
           ${{ secrets.API_APPSETTINGS_PRODUCTION_JSON }}
           EOF
 
-      - name: Deploy to Azure Web App
+      - name: Azure Login (service principal)
+        if: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE == '' && secrets.AZURE_CREDENTIALS != '' }}
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy to Azure Web App (publish profile)
+        if: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE != '' }}
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: "${{ github.workspace }}/publish"
+
+      - name: Deploy to Azure Web App (azure login)
+        if: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE == '' && secrets.AZURE_CREDENTIALS != '' }}
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
           package: "${{ github.workspace }}/publish"
