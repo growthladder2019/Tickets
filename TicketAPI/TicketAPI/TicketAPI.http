@@ -1,0 +1,6 @@
+@TicketAPI_HostAddress = http://localhost:5056
+
+GET {{TicketAPI_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

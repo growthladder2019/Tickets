@@ -1,0 +1,38 @@
+name: API Web App Linux
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "TicketAPI/**"
+      - "SQL/**"
+      - ".github/workflows/api-webapp-linux.yml"
+  workflow_dispatch:
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+    name: Build and Deploy API
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore
+        run: dotnet restore TicketAPI/TicketAPI/TicketAPI.csproj
+
+      - name: Publish
+        run: dotnet publish TicketAPI/TicketAPI/TicketAPI.csproj -c Release -r linux-x64 --self-contained false -o "${{ github.workspace }}/publish"
+
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: "${{ github.workspace }}/publish"
