@@ -15,11 +15,9 @@ jobs:
     runs-on: ubuntu-latest
     name: Build and Deploy Ticket API
     env:
+      API_APP_NAME: mindticketmanagement-fna0gsfmfjecfrbe
       API_APPSETTINGS_PRODUCTION_JSON_SECRET: ${{ secrets.API_APPSETTINGS_PRODUCTION_JSON }}
-      AZURE_WEBAPP_NAME_SECRET: ${{ secrets.AZURE_WEBAPP_NAME }}
       AZURE_WEBAPP_PUBLISH_PROFILE_SECRET: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-      AZURE_WEBAPP_PUBLISH_PROFILE_ALT_SECRET: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE }}
-      AZURE_CREDENTIALS_SECRET: ${{ secrets.AZURE_CREDENTIALS }}
 
     steps:
       - name: Checkout
@@ -45,64 +43,33 @@ jobs:
 
       - name: Validate deployment secrets
         run: |
-          if [ -z "$AZURE_WEBAPP_PUBLISH_PROFILE_SECRET" ] && [ -z "$AZURE_WEBAPP_PUBLISH_PROFILE_ALT_SECRET" ] && [ -z "$AZURE_CREDENTIALS_SECRET" ]; then
-            echo "Missing deployment credentials. Add AZURE_WEBAPP_PUBLISH_PROFILE (or AZUREAPPSERVICE_PUBLISHPROFILE), or AZURE_CREDENTIALS."
+          if [ -z "$AZURE_WEBAPP_PUBLISH_PROFILE_SECRET" ]; then
+            echo "Missing required GitHub secret: AZURE_WEBAPP_PUBLISH_PROFILE"
             exit 1
           fi
 
-      - name: Resolve Azure Web App name
-        id: resolve_app_name
+      - name: Validate publish profile matches app
         run: |
-          PROFILE_CONTENT="$AZURE_WEBAPP_PUBLISH_PROFILE_SECRET"
-          if [ -z "$PROFILE_CONTENT" ]; then
-            PROFILE_CONTENT="$AZURE_WEBAPP_PUBLISH_PROFILE_ALT_SECRET"
+          PROFILE_APP_NAME=$(printf '%s' "$AZURE_WEBAPP_PUBLISH_PROFILE_SECRET" | sed -n 's/.*destinationAppUrl="https:\/\/\([^.\"]*\)\.azurewebsites\.net".*/\1/p' | head -n 1)
+          if [ -z "$PROFILE_APP_NAME" ]; then
+            echo "Could not parse app name from AZURE_WEBAPP_PUBLISH_PROFILE"
+            exit 1
           fi
 
-          APP_NAME=""
-          if [ -n "$PROFILE_CONTENT" ]; then
-            APP_NAME=$(printf '%s' "$PROFILE_CONTENT" | sed -n 's/.*destinationAppUrl="https:\/\/\([^.\"]*\)\.azurewebsites\.net".*/\1/p' | head -n 1)
+          echo "Publish profile app: $PROFILE_APP_NAME"
+          if [ "$PROFILE_APP_NAME" != "$API_APP_NAME" ]; then
+            echo "Publish profile belongs to '$PROFILE_APP_NAME' but workflow targets '$API_APP_NAME'."
+            echo "Update AZURE_WEBAPP_PUBLISH_PROFILE with a profile from the target app."
+            exit 1
           fi
-
-          if [ -z "$APP_NAME" ]; then
-            APP_NAME="$AZURE_WEBAPP_NAME_SECRET"
-          fi
-
-          if [ -z "$APP_NAME" ]; then
-            APP_NAME="mindticketmanagement-fna0gsfmfjecfrbe"
-          fi
-
-          echo "Resolved app name: $APP_NAME"
-          echo "app_name=$APP_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Write appsettings.Production.json
         run: |
           printf '%s' "$API_APPSETTINGS_PRODUCTION_JSON_SECRET" > "${{ github.workspace }}/publish/appsettings.Production.json"
 
-      - name: Azure Login (service principal)
-        if: ${{ env.AZURE_WEBAPP_PUBLISH_PROFILE_SECRET == '' && env.AZURE_WEBAPP_PUBLISH_PROFILE_ALT_SECRET == '' && env.AZURE_CREDENTIALS_SECRET != '' }}
-        uses: azure/login@v2
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
       - name: Deploy to Azure Web App (publish profile)
-        if: ${{ env.AZURE_WEBAPP_PUBLISH_PROFILE_SECRET != '' }}
         uses: azure/webapps-deploy@v3
         with:
-          app-name: ${{ steps.resolve_app_name.outputs.app_name }}
+          app-name: ${{ env.API_APP_NAME }}
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: "${{ github.workspace }}/publish"
-
-      - name: Deploy to Azure Web App (alternate publish profile secret)
-        if: ${{ env.AZURE_WEBAPP_PUBLISH_PROFILE_SECRET == '' && env.AZURE_WEBAPP_PUBLISH_PROFILE_ALT_SECRET != '' }}
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: ${{ steps.resolve_app_name.outputs.app_name }}
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE }}
-          package: "${{ github.workspace }}/publish"
-
-      - name: Deploy to Azure Web App (azure login)
-        if: ${{ env.AZURE_WEBAPP_PUBLISH_PROFILE_SECRET == '' && env.AZURE_WEBAPP_PUBLISH_PROFILE_ALT_SECRET == '' && env.AZURE_CREDENTIALS_SECRET != '' }}
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: ${{ steps.resolve_app_name.outputs.app_name }}
           package: "${{ github.workspace }}/publish"
