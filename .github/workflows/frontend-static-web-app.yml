@@ -20,14 +20,24 @@ jobs:
     if: github.event_name == 'push' || github.event.action != 'closed'
     runs-on: ubuntu-latest
     name: Build and Deploy Frontend
+    env:
+      SWA_TOKEN_PRIMARY: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+      SWA_TOKEN_ALT: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_VICTORIOUS_SEA_0B0A48A00 }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Validate Static Web App token
+        run: |
+          if [ -z "$SWA_TOKEN_PRIMARY" ] && [ -z "$SWA_TOKEN_ALT" ]; then
+            echo "Missing Static Web App token secret. Add AZURE_STATIC_WEB_APPS_API_TOKEN or AZURE_STATIC_WEB_APPS_API_TOKEN_VICTORIOUS_SEA_0B0A48A00."
+            exit 1
+          fi
+
       - name: Build and Deploy to Azure Static Web Apps
         uses: Azure/static-web-apps-deploy@v1
         with:
-          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN != '' && secrets.AZURE_STATIC_WEB_APPS_API_TOKEN || secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_VICTORIOUS_SEA_0B0A48A00 }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: upload
           app_location: "Tickets"
@@ -38,9 +48,13 @@ jobs:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
     runs-on: ubuntu-latest
     name: Close Frontend Preview Environment
+    env:
+      SWA_TOKEN_PRIMARY: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+      SWA_TOKEN_ALT: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_VICTORIOUS_SEA_0B0A48A00 }}
     steps:
       - name: Close PR Preview
         uses: Azure/static-web-apps-deploy@v1
         with:
-          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN != '' && secrets.AZURE_STATIC_WEB_APPS_API_TOKEN || secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_VICTORIOUS_SEA_0B0A48A00 }}
           action: close
+          app_location: "Tickets"
