@@ -42,15 +42,18 @@ jobs:
 
       - name: Validate deployment secrets
         run: |
-          if [ -z "${{ secrets.AZURE_WEBAPP_NAME }}" ]; then
-            echo "Missing required GitHub secret: AZURE_WEBAPP_NAME"
-            exit 1
-          fi
-
           if [ -z "${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}" ] && [ -z "${{ secrets.AZURE_CREDENTIALS }}" ]; then
             echo "Missing deployment credentials. Add either AZURE_WEBAPP_PUBLISH_PROFILE or AZURE_CREDENTIALS."
             exit 1
           fi
+
+      - name: Resolve Azure Web App name
+        run: |
+          APP_NAME="${{ secrets.AZURE_WEBAPP_NAME }}"
+          if [ -z "$APP_NAME" ]; then
+            APP_NAME="mindticketmanagement-fna0gsfmfjecfrbe"
+          fi
+          echo "AZURE_WEBAPP_NAME_VALUE=$APP_NAME" >> "$GITHUB_ENV"
 
       - name: Write appsettings.Production.json
         run: |
@@ -68,7 +71,7 @@ jobs:
         if: ${{ env.AZURE_WEBAPP_PUBLISH_PROFILE_SECRET != '' }}
         uses: azure/webapps-deploy@v3
         with:
-          app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
+          app-name: ${{ env.AZURE_WEBAPP_NAME_VALUE }}
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
           package: "${{ github.workspace }}/publish"
 
@@ -76,5 +79,5 @@ jobs:
         if: ${{ env.AZURE_WEBAPP_PUBLISH_PROFILE_SECRET == '' && env.AZURE_CREDENTIALS_SECRET != '' }}
         uses: azure/webapps-deploy@v3
         with:
-          app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
+          app-name: ${{ env.AZURE_WEBAPP_NAME_VALUE }}
           package: "${{ github.workspace }}/publish"
