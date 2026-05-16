@@ -1,4 +1,4 @@
-name: API Web App Linux
+name: API Web App Ticket
 
 on:
   push:
@@ -13,7 +13,7 @@ on:
 jobs:
   build_and_deploy:
     runs-on: ubuntu-latest
-    name: Build and Deploy API
+    name: Build and Deploy Ticket API
 
     steps:
       - name: Checkout
