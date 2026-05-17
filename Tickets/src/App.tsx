@@ -471,7 +471,17 @@ function UserPortal({ auth, onLogout }: { auth: AuthResponse; onLogout: () => vo
   )
 }
 
-function TicketCreateModal({ token, onClose, onSaved }: { token: string; onClose: () => void; onSaved: () => Promise<void> }) {
+function TicketCreateModal({
+  token,
+  applicationId,
+  onClose,
+  onSaved
+}: {
+  token: string
+  applicationId?: string
+  onClose: () => void
+  onSaved: () => Promise<void>
+}) {
   const [requesterName, setRequesterName] = useState('')
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -485,9 +495,22 @@ function TicketCreateModal({ token, onClose, onSaved }: { token: string; onClose
     event.preventDefault()
     setError('')
     try {
+      const payload: Record<string, string> = {
+        requesterName,
+        title,
+        description,
+        message,
+        category,
+        priority
+      }
+
+      if (applicationId) {
+        payload.applicationId = applicationId
+      }
+
       const detail = await apiRequest<TicketDetail>('/api/tickets', {
         method: 'POST',
-        body: JSON.stringify({ requesterName, title, description, message, category, priority })
+        body: JSON.stringify(payload)
       }, token)
 
       if (files) {
@@ -923,6 +946,7 @@ function UsersPage({ token }: { token: string }) {
 function AdminTicketsPage({ token }: { token: string }) {
   const [tickets, setTickets] = useState<TicketSummary[]>([])
   const [summaryTickets, setSummaryTickets] = useState<TicketSummary[]>([])
+  const [createOpen, setCreateOpen] = useState(false)
   const [users, setUsers] = useState<UserAdmin[]>([])
   const [applications, setApplications] = useState<ApplicationAdmin[]>([])
   const [selectedApplicationId, setSelectedApplicationId] = useState('')
@@ -997,7 +1021,12 @@ function AdminTicketsPage({ token }: { token: string }) {
 
   return (
     <section>
-      <header className="panel-header"><h2>Ticket Management</h2></header>
+      <header className="panel-header">
+        <h2>Ticket Management</h2>
+        <div className="actions">
+          <button onClick={() => setCreateOpen(true)} disabled={!selectedApplicationId}>Create New Ticket</button>
+        </div>
+      </header>
       <div className="ticket-form" style={{ marginBottom: '1rem' }}>
         <label>
           Application
@@ -1079,6 +1108,17 @@ function AdminTicketsPage({ token }: { token: string }) {
             </div>
           </div>
         </Modal>
+      ) : null}
+      {createOpen ? (
+        <TicketCreateModal
+          token={token}
+          applicationId={selectedApplicationId || undefined}
+          onClose={() => setCreateOpen(false)}
+          onSaved={async () => {
+            setCreateOpen(false)
+            await load()
+          }}
+        />
       ) : null}
       {activeTicketId ? (
         <TicketDetailModal

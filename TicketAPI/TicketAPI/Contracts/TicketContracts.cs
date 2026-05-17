@@ -8,7 +8,8 @@ public sealed record CreateTicketRequest(
     string Description,
     string Message,
     string Category,
-    string Priority);
+    string Priority,
+    Guid? ApplicationId = null);
 
 public sealed record UpdateTicketRequest(
     string Title,

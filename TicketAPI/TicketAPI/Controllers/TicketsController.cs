@@ -19,15 +19,29 @@ public sealed class TicketsController(
     [HttpPost]
     public async Task<ActionResult<TicketDetailResponse>> Create(CreateTicketRequest request, CancellationToken cancellationToken)
     {
+        ApplicationEntity? app;
         if (currentUser.IsSuperAdmin)
         {
-            return BadRequest("Super admin cannot create end-user tickets from this endpoint.");
-        }
+            if (!request.ApplicationId.HasValue)
+            {
+                return BadRequest("ApplicationId is required for super-admin ticket creation.");
+            }
 
-        var app = await ResolveAppAsync(cancellationToken);
-        if (app is null)
+            app = await dbContext.Applications
+                .SingleOrDefaultAsync(x => x.Id == request.ApplicationId.Value, cancellationToken);
+
+            if (app is null)
+            {
+                return BadRequest("Invalid application id.");
+            }
+        }
+        else
         {
-            return Forbid();
+            app = await ResolveAppAsync(cancellationToken);
+            if (app is null)
+            {
+                return Forbid();
+            }
         }
 
         var ticket = new TicketEntity
@@ -54,7 +68,9 @@ public sealed class TicketsController(
             Id = Guid.NewGuid(),
             TicketId = ticket.Id,
             EventType = "CREATED",
-            Description = "Ticket created by requester.",
+            Description = currentUser.IsSuperAdmin
+                ? "Ticket created by super admin."
+                : "Ticket created by requester.",
             ActorEmail = currentUser.Email,
             CreatedUtc = DateTime.UtcNow
         });
