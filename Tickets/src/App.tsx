@@ -510,7 +510,7 @@ function TicketCreateModal({ token, onClose, onSaved }: { token: string; onClose
         <label>User Name<input value={requesterName} onChange={(event) => setRequesterName(event.target.value)} required /></label>
         <label>Title<input value={title} onChange={(event) => setTitle(event.target.value)} required /></label>
         <label>Description<textarea rows={3} value={description} onChange={(event) => setDescription(event.target.value)} required /></label>
-        <label>Message<textarea rows={3} value={message} onChange={(event) => setMessage(event.target.value)} required /></label>
+        <label>Steps wise error details<textarea rows={3} value={message} onChange={(event) => setMessage(event.target.value)} required /></label>
         <label>
           Category
           <select value={category} onChange={(event) => setCategory(event.target.value)} required>
